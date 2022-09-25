@@ -1,0 +1,32 @@
+{
+  "name": "serverless-tutorial",
+  "version": "1.0.0",
+  "description": "Repo for the tutorial [Serverless Framework with AWS Tutorial - Arabic ](https://youtube.com/c/khalidelshafie)",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abolkog/serverless-aws-tutorial.git"
+  },
+  "author": "Khalid Elshafie",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/abolkog/serverless-aws-tutorial/issues"
+  },
+  "homepage": "https://github.com/abolkog/serverless-aws-tutorial#readme",
+  "dependencies": {
+    "@aws-lambda-powertools/logger": "^0.2.0",
+    "@aws-lambda-powertools/metrics": "^0.2.0",
+    "@aws-lambda-powertools/tracer": "^0.2.0",
+    "amazon-qldb-driver-nodejs": "^1.0.0",
+    "aws-sdk": "^2.1215.0",
+    "cfn-response-promise": "^1.1.0",
+    "ion-js": "^4.3.0",
+    "jsbi": "^3.2.5",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {
+    "serverless-iam-roles-per-function": "^3.2.0"
+  }
+}

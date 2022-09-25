@@ -1,0 +1,124 @@
+service: mock-sqs
+
+frameworkVersion: '2 || 3'
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  lambdaHashingVersion: 20201221
+  region: ap-northeast-1
+  stage: ${opt:stage , 'dev'}
+  tracing:
+    apiGateway: true
+    lambda: true # Optional, can be true (true equals 'Active'), 'Active' or 'PassThrough'  
+  apiGateway:
+    shouldStartNameWithService: true
+  iamRoleStatements:
+    - Effect: Allow
+      Action: 
+        - 'qldb:SendCommand'
+      Resource:
+        - !Sub "arn:aws:qldb:${AWS::Region}:${AWS::AccountId}:ledger/sqs-ledger-${self:provider.stage}"
+    - Effect: Allow
+      Action: 
+        - 'qldb:PartiQLInsert'
+        - 'qldb:PartiQLUpdate'
+        - 'qldb:PartiQLDelete'
+        - 'qldb:PartiQLSelect'
+        - 'qldb:PartiQLHistoryFunction'
+      Resource:
+        - !Sub "arn:aws:qldb:${AWS::Region}:${AWS::AccountId}:ledger/sqs-ledger-${self:provider.stage}/*"
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+      Resource:
+        Fn::Join:
+          - ''
+          - - 'arn:aws:s3:::'
+            - 'Ref': 'OrdersBucket'
+            - '/*'
+    - Effect: Allow
+      Action:
+        - SQS:SendMessage
+        - SQS:DeleteMessage
+        - SQS:GetQueueUrl
+        - SQS:ReceiveMessage
+      Resource:
+        Fn::GetAtt: 
+          - OrdersQueue  
+          - Arn
+  environment:
+    LedgerName: sqs-ledger-${self:provider.stage}
+    TableName: OrderTable-${self:provider.stage}
+    ordersBucketName: ${self:custom.ordersBucketName}
+    ordersQueue: { Ref: OrdersQueue }
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED	: "1"
+    POWERTOOLS_METRICS_NAMESPACE: ${self:service}
+    POWERTOOLS_LOGGER_SAMPLE_RATE: 0.2
+    LOG_LEVEL: WARN
+
+custom:
+  LedgerName: ${self:provider.environment.LedgerName}
+  ordersBucketName: orders-bucket-${self:provider.stage}
+  ordersQueue: limitReducerQueue
+
+plugins:
+  - serverless-iam-roles-per-function
+  - serverless-pseudo-parameters
+
+functions:
+  # createTable:
+  #   handler: src/lambdas/order-producer.tableCreation
+  #   environment:
+  #     TABLE_NAME: ${self:provider.environment.TableName}
+  createUser:
+    handler: src/lambdas/order-producer.createUser
+    events:
+      - http:
+          method: POST
+          path: /orders/create-user
+          cors: true
+  orderProducer:
+    handler: src/lambdas/order-producer.handler
+    timeout: 60
+    events:
+      - http:
+          method: POST
+          path: /orders/create-order
+          cors: true
+  orderConsumer:
+    handler: src/lambdas/order-consumer.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: 
+              - OrdersQueue
+              - Arn
+          batchSize: 20
+
+resources:
+ Resources:
+  QLDBLedger:
+      Type: AWS::QLDB::Ledger
+      Properties:
+        Name: ${self:custom.LedgerName}
+        DeletionProtection: false
+        PermissionsMode: STANDARD
+        Tags:
+          - Key: name
+            Value: qldb-wallet-demo
+  # QLDBTable:
+  #     Type: Custom::QLDBTable
+  #     DependsOn: QLDBLedger
+  #     Properties:
+  #       ServiceToken: !GetAtt CreateTableLambdaFunction.Arn
+  #       Version: 1.0  #change this to force redeploy  
+  OrdersBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: ${self:custom.ordersBucketName}
+  OrdersQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ${self:custom.ordersQueue}
+   
